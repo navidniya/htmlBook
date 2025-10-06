@@ -1,0 +1,17 @@
+[Unit]
+Description=Realty Scan Node server (htmlBook)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/htmlBook
+Environment=PORT=5173
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
