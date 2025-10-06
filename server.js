@@ -19,6 +19,18 @@ app.use(express.static(__dirname, { etag: true, maxAge: '1h' }));
 // Health check
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 
+// Common header sanitizer to allow embedding and avoid COOP/COEP issues
+function relaxEmbeddingHeaders(proxyRes) {
+  // Remove headers that can block embedding or cross-origin behaviors
+  delete proxyRes.headers['x-frame-options'];
+  if (proxyRes.headers['content-security-policy']) {
+    proxyRes.headers['content-security-policy'] = proxyRes.headers['content-security-policy']
+      .replace(/frame-ancestors[^;]*;?/ig, '');
+  }
+  delete proxyRes.headers['cross-origin-opener-policy'];
+  delete proxyRes.headers['cross-origin-embedder-policy'];
+}
+
 // Reverse proxy to Matterport under /mp
 const mpProxy = createProxyMiddleware({
   target: 'https://my.matterport.com',
@@ -28,16 +40,7 @@ const mpProxy = createProxyMiddleware({
   onProxyReq: (proxyReq) => {
     proxyReq.setHeader('Cache-Control', 'no-cache');
   },
-  onProxyRes: (proxyRes) => {
-    // Remove headers that can block embedding or cross-origin behaviors
-    delete proxyRes.headers['x-frame-options'];
-    if (proxyRes.headers['content-security-policy']) {
-      proxyRes.headers['content-security-policy'] = proxyRes.headers['content-security-policy']
-        .replace(/frame-ancestors[^;]*;?/ig, '');
-    }
-    delete proxyRes.headers['cross-origin-opener-policy'];
-    delete proxyRes.headers['cross-origin-embedder-policy'];
-  },
+  onProxyRes: relaxEmbeddingHeaders,
   pathRewrite: { '^/mp': '' }
 });
 app.use('/mp', mpProxy);
@@ -47,7 +50,11 @@ const mpCatchAll = createProxyMiddleware({
   target: 'https://my.matterport.com',
   changeOrigin: true,
   secure: true,
-  ws: true
+  ws: true,
+  onProxyReq: (proxyReq) => {
+    proxyReq.setHeader('Cache-Control', 'no-cache');
+  },
+  onProxyRes: relaxEmbeddingHeaders
 });
 
 app.use((req, res, next) => {
