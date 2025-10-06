@@ -39,6 +39,13 @@ const mpProxy = createProxyMiddleware({
   ws: true,
   onProxyReq: (proxyReq) => {
     proxyReq.setHeader('Cache-Control', 'no-cache');
+    // Many MP subresources expect a same-origin Referer; supply a safe default
+    proxyReq.setHeader('Referer', 'https://my.matterport.com/show/');
+    proxyReq.setHeader('Origin', 'https://my.matterport.com');
+    // Let JS files negotiate correctly
+    if (proxyReq.path && /\.(js)(\?|$)/i.test(proxyReq.path)) {
+      proxyReq.setHeader('Accept', '*/*');
+    }
   },
   onProxyRes: relaxEmbeddingHeaders,
   pathRewrite: { '^/mp': '' }
@@ -53,6 +60,11 @@ const mpCatchAll = createProxyMiddleware({
   ws: true,
   onProxyReq: (proxyReq) => {
     proxyReq.setHeader('Cache-Control', 'no-cache');
+    proxyReq.setHeader('Referer', 'https://my.matterport.com/show/');
+    proxyReq.setHeader('Origin', 'https://my.matterport.com');
+    if (proxyReq.path && /\.(js)(\?|$)/i.test(proxyReq.path)) {
+      proxyReq.setHeader('Accept', '*/*');
+    }
   },
   onProxyRes: relaxEmbeddingHeaders
 });
